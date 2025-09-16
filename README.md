@@ -1,6 +1,6 @@
 <img width="192" height="192" alt="ic_launcher (1)" src="https://github.com/user-attachments/assets/1608f585-888d-42cd-973a-244fb0b93739" />
 
-It's firmware for esp32-s3 form my project. Pls change pin on 253 string. If you using my code, pls credit me.
+It's firmware for esp32 (i'm using Dev Board) for my project. Pls change pin on 253 string. If you using my code, pls credit me.
 
 What do you need for this and pins for connect:
 
