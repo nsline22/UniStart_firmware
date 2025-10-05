@@ -542,17 +542,15 @@ void updateDisplay() {
 }
 
 void sendStatus() {
-  SerialBT.print("Ignition: ");
-  SerialBT.println(digitalRead(RELAY1_PIN) ? "OFF" : "ON");
-  SerialBT.print("Starter: ");
-  SerialBT.println(digitalRead(RELAY2_PIN) ? "OFF" : "ON");
-  SerialBT.print("LED: ");
-  SerialBT.println(digitalRead(LED_PIN) ? "ON" : "OFF");
-  SerialBT.print("Bluetooth: ");
-  SerialBT.println(bt_connected ? "Connected" : "Disconnected");
+  SerialBT.print("I-");
+  SerialBT.println(digitalRead(RELAY1_PIN) ? "0" : "1");
+  SerialBT.print("S-");
+  SerialBT.println(digitalRead(RELAY2_PIN) ? "0" : "1");
+  SerialBT.print("L-");
+  SerialBT.println(digitalRead(LED_PIN) ? "1" : "0");
 
   DateTime now = rtc.now();
-  SerialBT.print("Time: ");
+  SerialBT.print("T-");
   SerialBT.print(now.year()); SerialBT.print("-");
   if (now.month() < 10) SerialBT.print("0"); // Добавляем ноль для месяцев 1-9
   SerialBT.print(now.month()); SerialBT.print("-");
@@ -565,16 +563,14 @@ void sendStatus() {
   if (now.second() < 10) SerialBT.print("0"); // Добавляем ноль для секунд 0-9
   SerialBT.println(now.second());
 
-  SerialBT.print("Voltage: ");
+  SerialBT.print("V-");
   SerialBT.println(in_voltage, 2);
 
-  SerialBT.print("Engine temp: ");
+  SerialBT.print("ETEMP-");
   SerialBT.println(sensor.getTemp());
 
-  SerialBT.print("Street temp: ");
+  SerialBT.print("STEMP-");
   SerialBT.println(sensor1.getTemp());
-  
-  SerialBT.print("Status always update every 30 seconds.");
 }
 
 void setRTCFromString(const char* timeStr) {
