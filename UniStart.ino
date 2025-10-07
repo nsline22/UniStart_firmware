@@ -15,13 +15,12 @@ RTC_DS3231 rtc;
 
 #define RELAY1_PIN 4
 #define RELAY2_PIN 5
-#define LED_PIN 15 // Лед лента
-#define analog_pin 34 // Вольтметер
+#define LED_PIN 15
+#define analog_pin 34
 #define BUZZ_PIN 17
-#define RST_PIN 26 // rc522 spi
-#define SS_PIN 25 // rc522 spi
+#define RST_PIN 26
+#define SS_PIN 25
 
-// OLED Display Settings
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
@@ -30,7 +29,6 @@ RTC_DS3231 rtc;
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 MFRC522 rfid(SS_PIN, RST_PIN);
 
-// Настройки EEPROM
 #define EEPROM_SIZE 512
 #define CARD_START_ADDR 0
 #define MAX_ALLOWED_CARDS 10
@@ -39,7 +37,7 @@ MFRC522 rfid(SS_PIN, RST_PIN);
 byte allowedUIDs[MAX_ALLOWED_CARDS][CARD_SIZE];
 int numAllowedCards = 0;
 
-// Иконки и картинки
+// Иконки
 static const unsigned char PROGMEM bt_icon[] = {
   0x00, 0x00, 0x01, 0x80, 0x01, 0xe0, 0x19, 0xf0, 0x1d, 0xf8, 0x0f, 0xb8, 0x07, 0xf0, 0x03, 0xe0, 
   0x01, 0xe0, 0x07, 0xf0, 0x0f, 0xf8, 0x1d, 0xb8, 0x19, 0xf0, 0x01, 0xe0, 0x01, 0xc0, 0x00, 0x00
@@ -111,8 +109,8 @@ static const unsigned char PROGMEM invalid_logo [] = {
 
 bool bt_connected = false;
 bool previous_bt_connected = false;
-bool unlocked_by_bt = false; // Флаг разблокировки по Bluetooth
-bool adding_new_card = false; // Флаг режима добавления новой карты
+bool unlocked_by_bt = false;
+bool adding_new_card = false;
 unsigned long last_bt_check = 0;
 char inputBuffer[40];
 byte inputPos = 0;
@@ -140,7 +138,6 @@ void buzz() {
   digitalWrite(BUZZ_PIN, LOW);
 }
 
-// Функции для работы с EEPROM
 void saveCardsToEEPROM() {
   int addr = CARD_START_ADDR;
   EEPROM.write(addr++, numAllowedCards);
@@ -163,7 +160,6 @@ void loadCardsFromEEPROM() {
     }
   }
   
-  // Если нет карт, добавляем дефолтную
   if (numAllowedCards == 0) {
     byte defaultCard[] = {0x9E, 0x93, 0xB3, 0x2};
     addCard(defaultCard);
@@ -212,13 +208,12 @@ void setup() {
   Serial.begin(115200);
   SerialBT.begin("UniStart");
 
-  // Инициализация EEPROM
   EEPROM.begin(EEPROM_SIZE);
   loadCardsFromEEPROM();
 
   Wire.begin();
   rtc.begin();
-  SPI.begin(14, 12, 13); // SCK, MISO, MOSI
+  SPI.begin(14, 12, 13);
   rfid.PCD_Init();
   
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
@@ -230,8 +225,8 @@ void setup() {
   pinMode(RELAY2_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUZZ_PIN, OUTPUT);
-  digitalWrite(RELAY1_PIN, HIGH); // Инверт
-  digitalWrite(RELAY2_PIN, HIGH); // Инверт
+  digitalWrite(RELAY1_PIN, HIGH);
+  digitalWrite(RELAY2_PIN, HIGH);
   digitalWrite(LED_PIN, LOW);
   digitalWrite(BUZZ_PIN, LOW);
   
@@ -245,7 +240,6 @@ void setup() {
   buzz();
 
   while (!unlocked_by_bt) {
-    // Проверяем команды Bluetooth
     while (SerialBT.available()) {
       char c = SerialBT.read();
       if (c == '\n' || c == '\r') {
@@ -272,7 +266,6 @@ void setup() {
     
     if (unlocked_by_bt) break;
 
-    // Проверяем карту RFID
     if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) {
       delay(100);
       continue;
@@ -353,7 +346,6 @@ void loop() {
     }
   }
 
-  // Обработка RFID карты после разблокировки
   if (unlocked_by_bt && rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
     bool match = false;
     for (int card = 0; card < numAllowedCards; card++) {
@@ -369,18 +361,16 @@ void loop() {
 
     if (match) {
       buzz();
-      // Выполняем команды '2' (стартер) и 'L' (светодиод)
-      if (!starterActive) { // Запускаем процесс только если стартер не активен
+      if (!starterActive) {
         starterActive = true;
         buzzCount = 0;
         lastBuzzTime = millis();
-        buzz(); // Первый сигнал
+        buzz();
         buzzCount++;
       }
-      digitalWrite(LED_PIN, HIGH); // Переключаем светодиод
+      digitalWrite(LED_PIN, HIGH);
       SerialBT.println("Card detected");
     } else if (adding_new_card) {
-      // Добавляем новую карту
       addCard(rfid.uid.uidByte);
       SerialBT.print("New card added: ");
       for (byte i = 0; i < 4; i++) {
@@ -399,11 +389,9 @@ void loop() {
     rfid.PCD_StopCrypto1();
   }
 
-  // Обработка команды стартера
   if (starterActive) {
     unsigned long currentTime = millis();
     
-    // Обработка звуковых сигналов
     if (buzzCount < 3) {
       if (currentTime - lastBuzzTime >= 500) {
         buzz();
@@ -411,14 +399,12 @@ void loop() {
         buzzCount++;
       }
     }
-    // Включение стартера после 3 сигналов
     else if (buzzCount == 3) {
       digitalWrite(RELAY2_PIN, LOW);
       starterStartTime = currentTime;
-      buzzCount++; // Переходим к следующему этапу
+      buzzCount++;
       SerialBT.println("Starter: 3s");
     }
-    // Выключение стартера через 3 секунды
     else if (currentTime - starterStartTime >= 3000) {
       digitalWrite(RELAY2_PIN, HIGH);
       starterActive = false;
@@ -449,11 +435,11 @@ void processCommand(const char* cmd) {
     SerialBT.println(digitalRead(RELAY1_PIN) ? "OFF" : "ON");
     buzz();
   } else if (cmd[0] == '2') {
-    if (!starterActive) { // Запускаем процесс только если стартер не активен
+    if (!starterActive) {
       starterActive = true;
       buzzCount = 0;
       lastBuzzTime = millis();
-      buzz(); // Первый сигнал
+      buzz();
       buzzCount++;
     }
   } else if (cmd[0] == 'L') {
@@ -465,14 +451,11 @@ void processCommand(const char* cmd) {
     sendStatus();
   } else if (cmd[0] == 'D' && cmd[1] == ':') {
     setRTCFromString(cmd + 2);
-    buzz();
   } else if (cmd[0] == 'A') {
-    // Команда добавления новой карты
     adding_new_card = true;
     SerialBT.println("Ready to add new card. Please scan the card now.");
     buzz();
   } else if (cmd[0] == 'R' && cmd[1] == ':') {
-    // Удаление карты по индексу (R:0, R:1 и т.д.)
     int index = atoi(cmd + 2);
     removeCard(index);
     SerialBT.print("Removed card ");
@@ -489,7 +472,6 @@ void processCommand(const char* cmd) {
 void updateDisplay() {
   display.clearDisplay();
 
-  // Icons (top)
   display.drawBitmap(0, 1, bt_connected ? bt_icon : no_icon, 16, 16, SSD1306_WHITE);
   display.drawBitmap(23, 1, digitalRead(RELAY1_PIN) ? no_icon : ignition_icon, 16, 16, SSD1306_WHITE);
   display.drawBitmap(46, 1, digitalRead(RELAY2_PIN) ? no_icon : starter_icon, 16, 16, SSD1306_WHITE);
@@ -503,17 +485,15 @@ void updateDisplay() {
 
   DateTime now = rtc.now();
 
-  // Время
   char timeStr[9];
-  snprintf(timeStr, sizeof(timeStr), "%02d:%02d", now.hour(), now.minute(), now.second());
+  snprintf(timeStr, sizeof(timeStr), "%02d:%02d", now.hour(), now.minute());
   display.setTextSize(2);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 25);
   display.print(timeStr);
 
-  // День недели и дата
   char dateStr[20];
-  snprintf(dateStr, sizeof(dateStr), "%s %02d/%02d", daysOfWeek[now.dayOfTheWeek()], now.day(), now.month(), now.year());
+  snprintf(dateStr, sizeof(dateStr), "%s %02d/%02d", daysOfWeek[now.dayOfTheWeek()], now.day(), now.month());
   display.setTextSize(1);
   display.setCursor(0, 45);
   display.print(dateStr);
@@ -552,15 +532,15 @@ void sendStatus() {
   DateTime now = rtc.now();
   SerialBT.print("T-");
   SerialBT.print(now.year()); SerialBT.print("-");
-  if (now.month() < 10) SerialBT.print("0"); // Добавляем ноль для месяцев 1-9
+  if (now.month() < 10) SerialBT.print("0");
   SerialBT.print(now.month()); SerialBT.print("-");
-  if (now.day() < 10) SerialBT.print("0"); // Добавляем ноль для дней 1-9
+  if (now.day() < 10) SerialBT.print("0");
   SerialBT.print(now.day()); SerialBT.print(" ");
-  if (now.hour() < 10) SerialBT.print("0"); // Добавляем ноль для часов 0-9
+  if (now.hour() < 10) SerialBT.print("0");
   SerialBT.print(now.hour()); SerialBT.print(":");
-  if (now.minute() < 10) SerialBT.print("0"); // Добавляем ноль для минут 0-9
+  if (now.minute() < 10) SerialBT.print("0");
   SerialBT.print(now.minute()); SerialBT.print(":");
-  if (now.second() < 10) SerialBT.print("0"); // Добавляем ноль для секунд 0-9
+  if (now.second() < 10) SerialBT.print("0");
   SerialBT.println(now.second());
 
   SerialBT.print("V-");
@@ -577,8 +557,5 @@ void setRTCFromString(const char* timeStr) {
   int y, M, d, h, m, s;
   if (sscanf(timeStr, "%d-%d-%d %d:%d:%d", &y, &M, &d, &h, &m, &s) == 6) {
     rtc.adjust(DateTime(y, M, d, h, m, s));
-    SerialBT.println("RTC updated");
-  } else {
-    SerialBT.println("Invalid time format. Use D:YYYY-MM-DD HH:MM:SS");
   }
 }
