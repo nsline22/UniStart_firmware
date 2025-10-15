@@ -33,9 +33,12 @@ MFRC522 rfid(SS_PIN, RST_PIN);
 #define CARD_START_ADDR 0
 #define MAX_ALLOWED_CARDS 10
 #define CARD_SIZE 4
+#define PIN_CODE_ADDR 100  // Адрес для хранения пинкода в EEPROM
+#define PIN_CODE_SIZE 4    // Размер пинкода (4 цифры)
 
 byte allowedUIDs[MAX_ALLOWED_CARDS][CARD_SIZE];
 int numAllowedCards = 0;
+char pinCode[PIN_CODE_SIZE + 1] = "9374";  // Пинкод по умолчанию
 
 // Иконки
 static const unsigned char PROGMEM bt_icon[] = {
@@ -138,6 +141,42 @@ void buzz() {
   digitalWrite(BUZZ_PIN, LOW);
 }
 
+// Функция для сохранения пинкода в EEPROM
+void savePinCodeToEEPROM() {
+  int addr = PIN_CODE_ADDR;
+  for (int i = 0; i < PIN_CODE_SIZE; i++) {
+    EEPROM.write(addr++, pinCode[i]);
+  }
+  EEPROM.commit();
+}
+
+// Функция для загрузки пинкода из EEPROM
+void loadPinCodeFromEEPROM() {
+  int addr = PIN_CODE_ADDR;
+  bool isEmpty = true;
+  
+  // Проверяем, есть ли сохраненный пинкод
+  for (int i = 0; i < PIN_CODE_SIZE; i++) {
+    char c = EEPROM.read(addr + i);
+    if (c != 0 && c != 0xFF) {
+      isEmpty = false;
+      break;
+    }
+  }
+  
+  if (isEmpty) {
+    // Используем пинкод по умолчанию
+    strcpy(pinCode, "9374");
+    savePinCodeToEEPROM();
+  } else {
+    // Загружаем сохраненный пинкод
+    for (int i = 0; i < PIN_CODE_SIZE; i++) {
+      pinCode[i] = EEPROM.read(addr + i);
+    }
+    pinCode[PIN_CODE_SIZE] = '\0';
+  }
+}
+
 void saveCardsToEEPROM() {
   int addr = CARD_START_ADDR;
   EEPROM.write(addr++, numAllowedCards);
@@ -206,9 +245,10 @@ void listCards() {
 
 void setup() {
   Serial.begin(115200);
-  SerialBT.begin("UniStart");
+  SerialBT.begin("UniStart-FB21");
 
   EEPROM.begin(EEPROM_SIZE);
+  loadPinCodeFromEEPROM();  // Загружаем пинкод при запуске
   loadCardsFromEEPROM();
 
   Wire.begin();
@@ -244,7 +284,8 @@ void setup() {
       char c = SerialBT.read();
       if (c == '\n' || c == '\r') {
         inputBuffer[inputPos] = '\0';
-        if (inputBuffer[0] == '9' && inputBuffer[1] == '3' && inputBuffer[2] == '7' && inputBuffer[3] == '4') {
+        // Проверяем пинкод из переменной pinCode
+        if (strncmp(inputBuffer, pinCode, PIN_CODE_SIZE) == 0) {
           unlocked_by_bt = true;
           buzz();
           display.clearDisplay();
@@ -403,7 +444,7 @@ void loop() {
       digitalWrite(RELAY2_PIN, LOW);
       starterStartTime = currentTime;
       buzzCount++;
-      SerialBT.println("Starter: 3s");
+      SerialBT.println("Starter ON");
     }
     else if (currentTime - starterStartTime >= 3000) {
       digitalWrite(RELAY2_PIN, HIGH);
@@ -464,6 +505,20 @@ void processCommand(const char* cmd) {
   } else if (cmd[0] == 'F') {
     listCards();
     buzz();
+  } else if (cmd[0] == 'P' && cmd[1] == ':') {
+    // Смена пинкода: P:0000
+    if (strlen(cmd + 2) == PIN_CODE_SIZE) {
+      strncpy(pinCode, cmd + 2, PIN_CODE_SIZE);
+      pinCode[PIN_CODE_SIZE] = '\0';
+      savePinCodeToEEPROM();
+      SerialBT.print("PIN changed to: ");
+      SerialBT.println(pinCode);
+      buzz();
+      delay(50);
+      buzz();
+    } else {
+      SerialBT.println("Invalid PIN format. Use P:0000");
+    }
   }
 
   updateDisplay();
